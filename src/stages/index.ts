@@ -7,6 +7,7 @@ import { RollStage } from './RollStage';
 import { FinishedStage } from './FinishedStage';
 import { SmokeStage } from './SmokeStage';
 import { FinalStage, FreeRoamStage, IntroStage } from './IdleStages';
+import { SandboxStage } from './SandboxStage';
 
 export function createStages(): { [K in StageId]: Stage } {
   return {
@@ -20,5 +21,6 @@ export function createStages(): { [K in StageId]: Stage } {
     SMOKE: new SmokeStage(),
     FINAL: new FinalStage(),
     FREE_ROAM: new FreeRoamStage(),
+    SANDBOX: new SandboxStage(),
   };
 }

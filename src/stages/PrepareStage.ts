@@ -14,6 +14,7 @@ export class PrepareStage implements Stage {
     game.hud.hideContinue();
     game.hud.setRollRing(null);
     game.hud.setBlowVisible(false, null);
+    game.hud.setChoiceBar({ ...game.choices });
 
     const w = game.world;
     w.bud.setCoreFormed(false);
@@ -110,6 +111,7 @@ export class PrepareStage implements Stage {
     game.setHint(null);
     game.hud.setRollRing(null);
     game.hud.setBlowVisible(false, null);
+    game.hud.setChoiceBar(null);
     game.world.zone.hide();
     game.interaction.setTargets([]);
     game.interaction.setZones([]);

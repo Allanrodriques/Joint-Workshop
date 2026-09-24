@@ -74,6 +74,8 @@ export class IntroController implements IntroAPI {
   private leaving: 'dim' | 'reveal' | 'gone' | null = null;
   private leaveT = 0;
   private disposed = false;
+  private readonly autoSkip: boolean;
+  private autoExitQueued = true;
 
   private sigLaunched = false;
   private burstLaunched = false;
@@ -92,6 +94,7 @@ export class IntroController implements IntroAPI {
     this.opts = opts;
     const osReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.reduced = opts.settings.motion === 'reduced' || osReduced;
+    this.autoSkip = opts.settings.skipIntro;
     this.scene = new IntroScene({ reduced: this.reduced, shadows: opts.settings.graphics !== 'low' });
     this.camera = new IntroCamera(this.aspect(), this.reduced);
     this.camera.setPath(CAMERA_PATH);
@@ -317,11 +320,16 @@ export class IntroController implements IntroAPI {
       this.nextFlyBy = time + lerp(1.4, 2.6, Math.random());
     }
 
-if (time >= T.READY && !this.ready) {
+if (time >= T.READY && !this._ready) {
       this._ready = true;
       this.enterBtn?.removeAttribute('disabled');
       this.enterBtn?.classList.add('is-ready');
       this.root.setAttribute('aria-hidden', 'false');
+      if (this.autoSkip && this.autoExitQueued) {
+        this.autoExitQueued = false;
+        this.startExit();
+        return;
+      }
     }
 
     this._progress = this.computeProgress(time);

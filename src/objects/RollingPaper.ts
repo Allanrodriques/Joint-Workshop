@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { RollingPaper as RollingPaperI } from '../game/GameState';
-import { LAYOUT, ROLL } from '../game/constants';
+import { LAYOUT, PAPERS, ROLL } from '../game/constants';
+import type { PaperDef } from '../game/constants';
 import { clamp, damp, lerp, smoothstep } from '../utils/math';
 import { fiberTexture } from '../utils/textures';
 
@@ -17,7 +18,8 @@ export class RollingPaper implements RollingPaperI {
   }
 
   private material: THREE.MeshStandardMaterial;
-  private geometry: THREE.PlaneGeometry;
+  private geometry!: THREE.PlaneGeometry;
+  private paper: PaperDef = PAPERS[1];
 
   private sArr: number[] = [];
   private flatX: number[] = [];
@@ -28,27 +30,7 @@ export class RollingPaper implements RollingPaperI {
   private time = 0;
 
   constructor() {
-    this.geometry = new THREE.PlaneGeometry(
-      LAYOUT.paper.len,
-      LAYOUT.paper.width,
-      LEN_SEG,
-      WIDTH_SEG,
-    );
-    this.geometry.rotateX(-Math.PI / 2);
-
-    const pos = this.geometry.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const z = pos.getZ(i);
-      const jitter = (Math.random() - 0.5) * 0.008;
-      this.sArr.push(z + 0.6);
-      this.flatX.push(x);
-      this.flatZ.push(z + jitter);
-      this.flatY.push(jitter * 0.5);
-      pos.setXYZ(i, x, this.flatY[i], this.flatZ[i]);
-    }
-    pos.needsUpdate = true;
-    this.geometry.computeVertexNormals();
+    this.rebuildGeometry();
 
     this.material = new THREE.MeshStandardMaterial({
       color: '#f2ecdf',
@@ -65,12 +47,53 @@ export class RollingPaper implements RollingPaperI {
     this.reset();
   }
 
+  private rebuildGeometry(): void {
+    const old = this.geometry;
+    const geo = new THREE.PlaneGeometry(
+      LAYOUT.paper.len,
+      this.paper.width,
+      LEN_SEG,
+      WIDTH_SEG,
+    );
+    geo.rotateX(-Math.PI / 2);
+
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    this.sArr = [];
+    this.flatX = [];
+    this.flatZ = [];
+    this.flatY = [];
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      const jitter = (Math.random() - 0.5) * 0.008;
+      this.sArr.push(z + 0.6);
+      this.flatX.push(x);
+      this.flatZ.push(z + jitter);
+      this.flatY.push(jitter * 0.5);
+      pos.setXYZ(i, x, this.flatY[i], this.flatZ[i]);
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+
+    this.geometry = geo;
+    if (this.mesh) this.mesh.geometry = geo;
+    if (old && old !== geo) old.dispose();
+  }
+
+  /** Swap to a different paper size. Safe to call while the sheet is hidden (PREPARE). */
+  setPaper(def: PaperDef): void {
+    if (def.id === this.paper.id) return;
+    this.paper = def;
+    this.rebuildGeometry();
+    this.setProgress(this._progress);
+  }
+
   setProgress(p: number): void {
     this._progress = clamp(p, 0, 1);
-    const r = LAYOUT.paper.radius;
+    const r = this.paper.radius;
     const circ = Math.PI * 2 * r;
     const w = ROLL.window;
-    const W = LAYOUT.paper.width;
+    const W = this.paper.width;
     const pos = this.geometry.attributes.position as THREE.BufferAttribute;
     const wobT = this.time;
 

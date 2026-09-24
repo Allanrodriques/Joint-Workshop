@@ -222,6 +222,8 @@ export class DragController {
 
   private readonly onPointerDown = (e: PointerEvent): void => {
     if (e.button !== 0 || this.active !== null) return;
+    const origin = e.target as Node | null;
+    if (origin && origin !== this.domElement && !this.domElement.contains(origin)) return;
     this.raycast.setPointer(e.clientX, e.clientY);
     const hit = this.raycast.pickFirst(this.getTargets());
     if (!hit) return;

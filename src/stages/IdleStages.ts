@@ -92,7 +92,7 @@ export class FreeRoamStage implements Stage {
     game.interaction.setZones([]);
     game.interaction.setOrbit(true);
     game.cameraRig.setLimits(1.2, 10, true);
-    game.hud.setFreeRoam(true, () => game.go('FINAL'));
+    game.hud.setFreeRoam(true, () => game.go('FINAL'), () => game.enterPhotoMode());
     game.setHint({
       kicker: 'FREE ROAM',
       text: 'Orbit, zoom and drag anything on the desk.',

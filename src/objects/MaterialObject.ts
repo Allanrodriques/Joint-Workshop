@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { MaterialObject as MaterialObjectI } from '../game/GameState';
 import { BREAK, HERB, LAYOUT } from '../game/constants';
-import type { HerbalPart } from '../game/constants';
+import type { HerbalPart, StrainDef } from '../game/constants';
 import { rand } from '../utils/math';
 
 const SLOTS: ReadonlyArray<readonly [number, number, number]> = [
@@ -60,6 +60,10 @@ export class MaterialObject implements MaterialObjectI {
   private coreAnchor = new THREE.Group();
   private coreGeo = new THREE.CapsuleGeometry(0.15, 1.9, 4, 12);
   private coreMat = new THREE.MeshStandardMaterial({ color: '#4a7338', roughness: 0.95, flatShading: true });
+
+  /** Shared plant-color materials, retinted when the player picks a strain. */
+  private leafMat!: THREE.MeshStandardMaterial;
+  private trimMat!: THREE.MeshStandardMaterial;
 
   private speckGeo = new THREE.IcosahedronGeometry(0.028, 0);
   private speckMat = new THREE.MeshStandardMaterial({ color: '#2a1c10', roughness: 0.9 });
@@ -138,7 +142,7 @@ export class MaterialObject implements MaterialObjectI {
 
   private initVariants(): void {
     const leafLobe = this.geo(new THREE.SphereGeometry(0.085, 10, 6));
-    const leafFall = this.stdMat('#5b8f2e', '#0d1a0a');
+    this.leafMat = this.stdMat('#5b8f2e', '#0d1a0a');
     const centerNub = this.geo(new THREE.IcosahedronGeometry(0.11, 0));
     const stemRod = this.geo(new THREE.CylinderGeometry(0.028, 0.045, 0.34, 7));
     const stemMat = this.stdMat('#a08a55', '#241a08');
@@ -148,7 +152,7 @@ export class MaterialObject implements MaterialObjectI {
     const seedTip = this.geo(new THREE.IcosahedronGeometry(0.02, 0));
     const seedHighlight = this.stdMat('#6b4c2a', '#1a1006');
     const trimBump = this.geo(new THREE.IcosahedronGeometry(0.055, 0));
-    const trimMat = this.stdMat('#7ea65c', '#17300f');
+    this.trimMat = this.stdMat('#7ea65c', '#17300f');
     const frostDot = this.geo(new THREE.SphereGeometry(0.012, 6, 4));
     const frostMat = this.stdMat('#dfe8c4', '#2a3a10');
 
@@ -156,13 +160,13 @@ export class MaterialObject implements MaterialObjectI {
       const g = new THREE.Group();
       const lobeY = 0.03;
       for (const a of [0, 2.1, 4.2]) {
-        const l = this.mesh(leafLobe, leafFall, 0, lobeY, 0, 1, 0.42, 0.6);
+        const l = this.mesh(leafLobe, this.leafMat, 0, lobeY, 0, 1, 0.42, 0.6);
         l.rotation.y = a;
         l.position.x = Math.sin(a) * 0.075;
         l.position.z = Math.cos(a) * 0.075;
         g.add(l);
       }
-      g.add(this.mesh(centerNub, leafFall, 0, 0.1, 0, 0.9, 0.9, 0.9));
+      g.add(this.mesh(centerNub, this.leafMat, 0, 0.1, 0, 0.9, 0.9, 0.9));
       return g;
     };
 
@@ -202,11 +206,11 @@ export class MaterialObject implements MaterialObjectI {
         [0.9, -0.3, -0.3],
         [0.1, 0.6, 0.7],
       ] as const) {
-        const b = this.mesh(trimBump, trimMat, ux * 0.05, uy * 0.05, uz * 0.05, 0.9, 0.9 + Math.random() * 0.4, 0.9);
+        const b = this.mesh(trimBump, this.trimMat, ux * 0.05, uy * 0.05, uz * 0.05, 0.9, 0.9 + Math.random() * 0.4, 0.9);
         g.add(b);
         g.add(this.mesh(frostDot, frostMat, ux * 0.08 + 0.01, uy * 0.06 + 0.02, uz * 0.07 - 0.01));
       }
-      g.add(this.mesh(trimBump, trimMat, 0, 0.03, 0, 1.1, 1, 1.1));
+      g.add(this.mesh(trimBump, this.trimMat, 0, 0.03, 0, 1.1, 1, 1.1));
       return g;
     };
 
@@ -254,6 +258,13 @@ export class MaterialObject implements MaterialObjectI {
 
   setPosition(x: number, y: number, z: number): void {
     this.group.position.set(x, y, z);
+  }
+
+  /** Recolor the bud + rolled core to the player's chosen strain. */
+  applyStrain(strain: StrainDef): void {
+    this.leafMat.color.set(strain.leaf);
+    this.trimMat.color.set(strain.trim);
+    this.coreMat.color.set(strain.core);
   }
 
   /* ------------------------------------ specks ------------------------------- */

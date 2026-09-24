@@ -14,23 +14,43 @@ import { createStages } from '../stages';
 import { Tweens } from '../utils/tween';
 import { disposeTextureCache } from '../utils/textures';
 import {
+  allUnlockedChips,
+  loadHistory,
+  loadMeta,
+  pushSession,
+  saveMeta,
+  unlockBy,
+} from './History';
+import type { AchievementCtx, AchievementDef } from './History';
+import {
+  AMOUNTS,
   CAMERA_VIEWS,
+  CHOICES_STORE_KEY,
+  DEFAULT_CHOICES,
   HELP,
+  PAPERS,
   STAGE_ORDER,
+  STRAINS,
   THEMES,
   defaultSettings,
 } from './constants';
 import type {
+  AmountId,
+  ChoiceKind,
+  Choices,
   FinalStats,
   GameAPI,
   GraphicsLevel,
   HintSpec,
   LabelDef,
+  PaperId,
   Settings as GameSettings,
   SettingsPanel,
+  SessionRecord,
   Stage,
   StageId,
   Stats,
+  StrainId,
   ToastTone,
 } from './GameState';
 
@@ -44,6 +64,7 @@ export class Game implements GameAPI {
   readonly labels: ReturnType<typeof createLabels>;
   readonly settings: GameSettings;
   readonly stats: Stats;
+  readonly choices: Choices;
   readonly audio = new AudioManager();
   readonly cameraRig: CameraController;
   readonly interaction: InteractionManager;
@@ -61,10 +82,13 @@ export class Game implements GameAPI {
   private fpsAvg = 60;
   private lowFpsTime = 0;
   private disposed = false;
+  private chain = 0;
+  private sessionRecorded = false;
   private readonly cleanup: Array<() => void> = [];
 
   constructor(canvas: HTMLCanvasElement) {
     this.settings = this.loadSettings();
+    this.choices = this.loadChoices();
     this.sceneMx = new SceneManager(canvas, this.settings.graphics);
     this.cameraRig = new CameraController(this.sceneMx.camera, canvas, {
       reducedMotion: () => this.settings.motion === 'reduced',
@@ -74,6 +98,7 @@ export class Game implements GameAPI {
     this.world = new World(this.sceneMx.scene);
     this.world.setQuality(this.settings.graphics);
     this.world.build();
+    this.applyChoicesNow();
 
     this.interaction = new InteractionManager({
       camera: this.sceneMx.camera,
@@ -87,7 +112,10 @@ export class Game implements GameAPI {
     const labelsRoot = document.getElementById('labels');
     this.labels = createLabels(labelsRoot ?? document.body);
     this.progress = createProgress();
-    this.hud = createHUD({ onSoundToggle: () => this.toggleSound() });
+    this.hud = createHUD({
+      onSoundToggle: () => this.toggleSound(),
+      onSelectChoice: (kind, value) => this.selectChoice(kind, value),
+    });
     this.settingsPanel = createSettingsPanel(
       () => this.settings,
       (patch) => this.patchSettings(patch),
@@ -128,6 +156,8 @@ export class Game implements GameAPI {
   private startRun(): void {
     this.audio.unlock();
     this.audio.setAmbient(this.settings.sound);
+    this.chain = 1;
+    this.sessionRecorded = false;
     this.stats.startedAt = performance.now();
     this.stats.finishedAt = 0;
     this.stats.interactions.clear();
@@ -163,6 +193,7 @@ export class Game implements GameAPI {
     this.tweens.update(dt);
     this.current.update(dt, this);
     this.world.update(dt, this.sceneMx.camera);
+    this.hud.setEmberGlow(this.world.joint.litLevel);
     this.interaction.update(dt);
     this.cameraRig.update(dt);
     this.labels.update(
@@ -345,7 +376,10 @@ export class Game implements GameAPI {
     } else {
       this.hud.hideFinal();
     }
-    if (id === 'FREE_ROAM') this.hud.hideFinal();
+    if (id === 'FREE_ROAM') {
+      this.hud.hideFinal();
+      this.onEnterFreeRoam();
+    }
   }
 
   next(): void {
@@ -396,6 +430,70 @@ export class Game implements GameAPI {
   }
 
   /* ---------------------------------------------------------------- */
+  /* Roll recipe (strain / paper / fill)                              */
+  /* ---------------------------------------------------------------- */
+
+  setChoices(patch: Partial<Choices>): void {
+    if (patch.strain && !STRAINS.some((s) => s.id === patch.strain)) return;
+    if (patch.paper && !PAPERS.some((p) => p.id === patch.paper)) return;
+    if (patch.amount && !AMOUNTS.some((a) => a.id === patch.amount)) return;
+    Object.assign(this.choices, patch);
+    this.saveChoices();
+    this.applyChoicesNow();
+
+    const label = patch.strain
+      ? STRAINS.find((s) => s.id === patch.strain)?.name
+      : patch.paper
+        ? PAPERS.find((p) => p.id === patch.paper)?.name
+        : patch.amount
+          ? AMOUNTS.find((a) => a.id === patch.amount)?.name
+          : undefined;
+    if (label) {
+      this.audio.click();
+      this.toast(label, 'amber');
+    }
+  }
+
+  private selectChoice(kind: ChoiceKind, value: string): void {
+    const patch: Partial<Choices> = {};
+    if (kind === 'strain') patch.strain = value as StrainId;
+    else if (kind === 'paper') patch.paper = value as PaperId;
+    else if (kind === 'amount') patch.amount = value as AmountId;
+    this.setChoices(patch);
+  }
+
+  private loadChoices(): Choices {
+    const base: Choices = { ...DEFAULT_CHOICES };
+    try {
+      const raw = localStorage.getItem(CHOICES_STORE_KEY);
+      if (!raw) return base;
+      const parsed = JSON.parse(raw) as Partial<Choices>;
+      if (parsed.strain && STRAINS.some((s) => s.id === parsed.strain)) base.strain = parsed.strain;
+      if (parsed.paper && PAPERS.some((p) => p.id === parsed.paper)) base.paper = parsed.paper;
+      if (parsed.amount && AMOUNTS.some((a) => a.id === parsed.amount)) base.amount = parsed.amount;
+    } catch {
+      /* storage unavailable */
+    }
+    return base;
+  }
+
+  private saveChoices(): void {
+    try {
+      localStorage.setItem(CHOICES_STORE_KEY, JSON.stringify(this.choices));
+    } catch {
+      /* storage unavailable */
+    }
+  }
+
+  private applyChoicesNow(): void {
+    const strain = STRAINS.find((s) => s.id === this.choices.strain);
+    if (strain) this.world.bud.applyStrain(strain);
+    const paper = PAPERS.find((p) => p.id === this.choices.paper) ?? PAPERS[1];
+    this.world.paper.setPaper(paper);
+    this.world.joint.applyPaper(paper);
+  }
+
+  /* ---------------------------------------------------------------- */
   /* Settings / theme                                                 */
   /* ---------------------------------------------------------------- */
 
@@ -410,6 +508,8 @@ export class Game implements GameAPI {
         motion: parsed.motion ?? base.motion,
         sound: parsed.sound ?? base.sound,
         themeIndex: Math.min(THEMES.length - 1, Math.max(0, parsed.themeIndex ?? 0)),
+        skipIntro: parsed.skipIntro ?? base.skipIntro,
+        music: parsed.music ?? base.music,
       };
     } catch {
       return base;
@@ -449,6 +549,7 @@ export class Game implements GameAPI {
     document.documentElement.style.setProperty('--brown', theme.deskLight);
 
     this.audio.setEnabled(this.settings.sound);
+    this.audio.setMusic(this.settings.music);
     this.hud.setSoundIcon(this.settings.sound);
     if (!this.settings.sound) this.audio.setAmbient(false);
     else if (this.stats.startedAt > 0) this.audio.setAmbient(true);
@@ -474,11 +575,152 @@ export class Game implements GameAPI {
 
   private showFinalPanel(): void {
     const stats = this.computeStats();
+    let history = loadHistory();
+
+    if (!this.sessionRecorded) {
+      this.sessionRecorded = true;
+      const ms = Math.max(
+        0,
+        (this.stats.finishedAt || performance.now()) - (this.stats.startedAt || 0),
+      );
+      const seconds = Math.round(ms / 1000);
+      const record: SessionRecord = {
+        at: Date.now(),
+        seconds,
+        timeLabel: stats.timeLabel,
+        objects: stats.objects,
+        roll: stats.roll,
+        style: stats.style,
+        styleLabel: stats.styleLabel,
+        strain: this.choices.strain,
+        paper: this.choices.paper,
+        amount: this.choices.amount,
+        chain: this.chain,
+      };
+      history = pushSession(record);
+      const fresh = unlockBy({
+        ...this.baseAchievementCtx(stats),
+        sessions: history.length,
+        strains: new Set(history.map((r) => r.strain)),
+        combos: new Set(history.map((r) => `${r.strain}|${r.paper}|${r.amount}`)).size,
+        chains: history.map((r) => r.chain),
+      });
+      this.toastFresh(fresh);
+    } else {
+      const fresh = unlockBy(this.baseAchievementCtx(stats));
+      this.toastFresh(fresh);
+    }
+
     this.hud.showFinal(stats, {
       onReplay: () => this.replay(),
       onScene: () => this.cycleTheme(),
       onFreeRoam: () => this.go('FREE_ROAM'),
+      onNextJoint: () => this.nextJoint(),
+      onSandbox: () => this.go('SANDBOX'),
+      onPhoto: () => this.enterPhotoMode(),
     });
+    this.hud.setFinalExtras(history, allUnlockedChips());
+  }
+
+  private baseAchievementCtx(stats?: FinalStats): AchievementCtx {
+    const history = loadHistory();
+    const meta = loadMeta();
+    return {
+      sessions: history.length,
+      bestRoll: history.reduce((m, r) => Math.max(m, r.roll), 0),
+      fastest: history.reduce((m, r) => (m === 0 ? r.seconds : Math.min(m, r.seconds)), 0),
+      objects: stats?.objects ?? this.stats.interactions.size,
+      style: stats?.style ?? 0,
+      strains: new Set<string>(),
+      combos: 0,
+      chains: [],
+      freeRoam: meta.freeRoam > 0,
+      photos: meta.photos,
+    };
+  }
+
+  private toastFresh(fresh: AchievementDef[]): void {
+    for (const d of fresh) this.toast(`Unlocked: ${d.name}`, 'good');
+  }
+
+  private onEnterFreeRoam(): void {
+    const meta = loadMeta();
+    meta.freeRoam += 1;
+    saveMeta(meta);
+    const fresh = unlockBy(this.baseAchievementCtx());
+    this.toastFresh(fresh);
+  }
+
+  /** Full-screen photo capture overlay. */
+  enterPhotoMode(): void {
+    this.hud.setPhotoMode(true, {
+      onCapture: () => this.capturePhoto(),
+      onExit: () => this.exitPhotoMode(),
+    });
+  }
+
+  exitPhotoMode(): void {
+    this.hud.setPhotoMode(false, null);
+  }
+
+  private capturePhoto(): void {
+    try {
+      this.sceneMx.render();
+      const canvas = this.sceneMx.renderer.domElement;
+      const dataUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.download = `joint-workshop-${Date.now()}.png`;
+      a.href = dataUrl;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      this.toast('Snapshot saved.', 'good');
+      this.track('photo');
+      const meta = loadMeta();
+      meta.photos += 1;
+      saveMeta(meta);
+      const fresh = unlockBy(this.baseAchievementCtx());
+      this.toastFresh(fresh);
+    } catch {
+      this.toast('Could not capture photo.', 'amber');
+    }
+  }
+
+  private resetRun(nextChain: number, message: string): void {
+    this.hud.hideFinal();
+    this.hud.hideFinished();
+    this.hud.closeModals();
+    this.world.reset();
+    this.world.smoke.stop();
+    this.world.smoke.reset();
+    this.world.joint.setLit(false);
+    this.world.joint.setSpin(false);
+    this.world.joint.hide();
+    this.world.lighter.reset();
+    for (const id of STAGE_ORDER) this.stages[id].reset(this);
+    this.tweens.clear();
+    this.chain = nextChain;
+    this.sessionRecorded = false;
+    this.stats.startedAt = performance.now();
+    this.stats.finishedAt = 0;
+    this.stats.interactions.clear();
+    this.stats.rollCompletion = 0;
+    this.go('PREPARE');
+    this.toast(message, 'good');
+  }
+
+  private replay(): void {
+    this.resetRun(1, 'Fresh roll. Let\'s go.');
+  }
+
+  /** Roll another joint back to back — chains the session for the streak reward. */
+  private nextJoint(): void {
+    const next = this.chain + 1;
+    this.resetRun(next, next > 2 ? `${next} in a row — keep it rolling.` : `Another one — that's ${next} in a row.`);
+  }
+
+  exitFreeRoam(): void {
+    this.go(this.stats.rollCompletion >= 100 ? 'FINAL' : 'PREPARE');
   }
 
   private computeStats(): FinalStats {
@@ -502,31 +744,6 @@ export class Game implements GameAPI {
       style,
       styleLabel,
     };
-  }
-
-  private replay(): void {
-    this.hud.hideFinal();
-    this.hud.hideFinished();
-    this.hud.closeModals();
-    this.world.reset();
-    this.world.smoke.stop();
-    this.world.smoke.reset();
-    this.world.joint.setLit(false);
-    this.world.joint.setSpin(false);
-    this.world.joint.hide();
-    this.world.lighter.reset();
-    for (const id of STAGE_ORDER) this.stages[id].reset(this);
-    this.tweens.clear();
-    this.stats.startedAt = performance.now();
-    this.stats.finishedAt = 0;
-    this.stats.interactions.clear();
-    this.stats.rollCompletion = 0;
-    this.go('PREPARE');
-    this.toast('Fresh roll. Let\'s go.', 'good');
-  }
-
-  exitFreeRoam(): void {
-    this.go(this.stats.rollCompletion >= 100 ? 'FINAL' : 'PREPARE');
   }
 
   /* ---------------------------------------------------------------- */

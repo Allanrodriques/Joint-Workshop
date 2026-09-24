@@ -186,15 +186,38 @@
               />
             </svg>
           </button>
-          <button id="btn-sound2" class="icon-btn" aria-label="Sound" title="Sound" type="button">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 9.5v5h3.2L12 18V6L7.2 9.5H4z" fill="currentColor" />
-            </svg>
-          </button>
         </div>
       </header>
 
       <div id="toasts" aria-live="polite"></div>
+
+      <!-- Roll-recipe chooser — visible only while PREPARING the material -->
+      <div id="choice-bar" class="choice-bar glass" role="group" aria-label="Roll recipe" hidden>
+        <div class="choice-group" role="group" aria-label="Strain">
+          <span class="choice-label">Strain</span>
+          <div class="seg choice-seg">
+            <button class="choice-btn" type="button" data-kind="strain" data-value="green" aria-pressed="true">Green</button>
+            <button class="choice-btn" type="button" data-kind="strain" data-value="violet" aria-pressed="false">Violet</button>
+            <button class="choice-btn" type="button" data-kind="strain" data-value="gold" aria-pressed="false">Gold</button>
+          </div>
+        </div>
+        <div class="choice-group" role="group" aria-label="Paper">
+          <span class="choice-label">Paper</span>
+          <div class="seg choice-seg">
+            <button class="choice-btn" type="button" data-kind="paper" data-value="slim" aria-pressed="false">Slim</button>
+            <button class="choice-btn" type="button" data-kind="paper" data-value="regular" aria-pressed="true">Regular</button>
+            <button class="choice-btn" type="button" data-kind="paper" data-value="king" aria-pressed="false">King</button>
+          </div>
+        </div>
+        <div class="choice-group" role="group" aria-label="Fill">
+          <span class="choice-label">Fill</span>
+          <div class="seg choice-seg">
+            <button class="choice-btn" type="button" data-kind="amount" data-value="light" aria-pressed="false">Light</button>
+            <button class="choice-btn" type="button" data-kind="amount" data-value="regular" aria-pressed="true">Regular</button>
+            <button class="choice-btn" type="button" data-kind="amount" data-value="generous" aria-pressed="false">Generous</button>
+          </div>
+        </div>
+      </div>
 
       <section id="hint" class="hint glass" aria-live="polite" hidden>
         <div class="hint-head">
@@ -281,10 +304,21 @@
             <div><dt>Roll completion</dt><dd id="stat-roll">—</dd></div>
             <div><dt>Style score</dt><dd id="stat-style">—</dd></div>
           </dl>
+          <section class="final-extra" aria-label="Session history">
+            <h3>History</h3>
+            <div id="session-history" class="history-list"><p class="history-empty">No sessions yet.</p></div>
+          </section>
+          <section class="final-extra" aria-label="Achievements">
+            <h3>Achievements <span id="achiev-count" class="achiev-count">0 / 12</span></h3>
+            <div id="achiev-strip" class="achiev-strip"><p class="history-empty">Keep playing to unlock.</p></div>
+          </section>
           <div class="final-actions">
             <button id="btn-replay" class="btn btn-primary">PLAY AGAIN</button>
+            <button id="btn-nextjoint" class="btn btn-amber">ROLL ANOTHER</button>
             <button id="btn-scene" class="btn btn-ghost">CHANGE SCENE</button>
             <button id="btn-freeroam" class="btn btn-ghost">FREE ROAM</button>
+            <button id="btn-sandbox" class="btn btn-ghost">SANDBOX</button>
+            <button id="btn-photo" class="btn btn-ghost">PHOTO</button>
           </div>
         </div>
       </aside>
@@ -314,6 +348,20 @@
               <label><input type="radio" name="sound" value="off" /><span>Off</span></label>
             </div>
           </div>
+          <div class="set-row">
+            <span>Music</span>
+            <div class="seg" role="radiogroup" aria-label="Ambient music">
+              <label><input type="radio" name="music" value="on" checked /><span>On</span></label>
+              <label><input type="radio" name="music" value="off" /><span>Off</span></label>
+            </div>
+          </div>
+          <div class="set-row">
+            <span>Skip intro</span>
+            <div class="seg" role="radiogroup" aria-label="Skip the cinematic intro">
+              <label><input type="radio" name="intro" value="off" checked /><span>Watch</span></label>
+              <label><input type="radio" name="intro" value="on" /><span>Skip</span></label>
+            </div>
+          </div>
           <button id="btn-settings-close" class="btn btn-ghost" data-close="modal-settings">Close</button>
         </div>
       </div>
@@ -329,9 +377,22 @@
       <div id="overlay-freeroam" class="overlay overlay-soft" hidden>
         <div class="panel">
           <p class="panel-head">Free roam — inspect the desk.</p>
-          <button id="btn-exit-freeroam" class="btn btn-primary">EXIT</button>
+          <div class="final-actions">
+            <button id="btn-exit-freeroam" class="btn btn-primary">EXIT</button>
+            <button id="btn-photo-freeroam" class="btn btn-ghost">PHOTO</button>
+          </div>
         </div>
       </div>
+
+      <div id="photo-ui" class="photo-ui" hidden>
+        <div class="photo-hint">PHOTO MODE — orbit &amp; zoom the shot, then capture</div>
+        <div class="photo-actions">
+          <button id="btn-photo-capture" class="btn btn-amber btn-lg">CAPTURE PNG</button>
+          <button id="btn-photo-exit" class="btn btn-ghost btn-lg">EXIT</button>
+        </div>
+      </div>
+
+      <div id="ember-glow" class="ember-glow" aria-hidden="true"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

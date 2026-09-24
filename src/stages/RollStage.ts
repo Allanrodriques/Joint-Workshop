@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { DragTarget, GameAPI, Stage, StageId } from '../game/GameState';
-import { CAMERA_VIEWS, LAYOUT } from '../game/constants';
+import { AMOUNTS, CAMERA_VIEWS, LAYOUT, PAPERS } from '../game/constants';
 import { clamp } from '../utils/math';
 
 const THRESHOLDS = [0.25, 0.5, 0.75] as const;
@@ -18,6 +18,7 @@ export class RollStage implements Stage {
   private labelHidden = false;
   private soundTimer = 0;
   private trackedPaperRoll = false;
+  private dragGain = WORLD_DRAG_GAIN;
   private readonly hitThresholds = new Set<number>();
 
   enter(game: GameAPI): void {
@@ -38,6 +39,10 @@ export class RollStage implements Stage {
     );
     game.interaction.setOrbit(false);
 
+    const paperDef = PAPERS.find((p) => p.id === game.choices.paper) ?? PAPERS[0];
+    const amount = AMOUNTS.find((a) => a.id === game.choices.amount) ?? AMOUNTS[1];
+    this.dragGain = WORLD_DRAG_GAIN * paperDef.gain * amount.gain;
+
     const target: DragTarget = {
       id: 'paper',
       root: w.paper.mesh,
@@ -53,7 +58,7 @@ export class RollStage implements Stage {
         t.root.rotation.set(0, 0, 0);
         const d = Math.abs(delta.x) + Math.abs(delta.z);
         if (d > ROLL_STEP) {
-          this.progress = clamp(this.progress + d * WORLD_DRAG_GAIN, 0, 1);
+          this.progress = clamp(this.progress + d * this.dragGain, 0, 1);
         }
       },
     };

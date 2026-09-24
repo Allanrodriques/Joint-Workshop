@@ -842,6 +842,172 @@ svg {
   gap: 10px;
 }
 
+/* Session history + achievements on the FINAL panel */
+.final-extra {
+  margin: 0 0 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.final-extra h3 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 8px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--smoke);
+}
+
+.achiev-count {
+  font-family: var(--mono);
+  font-weight: 700;
+  color: rgba(137, 236, 191, 0.8);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.history-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.history-item .h-time {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--amber);
+  white-space: nowrap;
+  min-width: 52px;
+}
+
+.history-item .h-rec {
+  color: rgba(236, 231, 220, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-empty {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--smoke);
+}
+
+.achiev-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.achiev-chip {
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #c8f5e0;
+  background: rgba(26, 158, 106, 0.16);
+  border: 1px solid rgba(62, 207, 142, 0.4);
+  box-shadow: 0 0 12px rgba(62, 207, 142, 0.18);
+}
+
+/* Settings modal rows */
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.set-row > span {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--off-white);
+  white-space: nowrap;
+}
+
+.set-row .seg {
+  flex: 1 1 auto;
+  max-width: 250px;
+}
+
+/* Full-screen photo capture overlay */
+.photo-ui {
+  position: fixed;
+  inset: 0;
+  z-index: 46;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: clamp(18px, 4vh, 40px) clamp(16px, 4vw, 40px);
+  background: rgba(6, 7, 10, 0.18);
+  pointer-events: none;
+}
+
+.photo-hint {
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--off-white);
+  background: rgba(16, 16, 20, 0.62);
+  border: 1px solid rgba(255, 180, 94, 0.3);
+  box-shadow: 0 0 22px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+/* Photo mode hides gameplay chrome so the frame is clean; capture reads only the canvas. */
+body.photo-mode .hud,
+body.photo-mode .hint,
+body.photo-mode #labels,
+body.photo-mode #toasts,
+body.photo-mode .choice-bar,
+body.photo-mode .smoke-ui,
+body.photo-mode #overlay-final,
+body.photo-mode #overlay-freeroam,
+body.photo-mode #ember-glow {
+  visibility: hidden;
+}
+
+/* Ember vignette — breathes with the burning tip */
+body:not(.photo-mode) #ember-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58% 48% at 50% 42%, transparent 40%, rgba(255, 122, 42, 0.26) 100%),
+    radial-gradient(120% 100% at 50% 45%, transparent 68%, rgba(140, 52, 12, 0.36) 100%);
+  transition: opacity 0.5s ease;
+}
+
 .chip-exit {
   position: fixed;
   top: clamp(66px, 9vh, 84px);
@@ -980,6 +1146,86 @@ svg {
 }
 
 /* ---------------------------------------------------------------- */
+/* Roll-recipe chooser (strain / paper / fill)                      */
+/* ---------------------------------------------------------------- */
+
+.choice-bar {
+  position: fixed;
+  left: 50%;
+  bottom: clamp(14px, 3.2vh, 28px);
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: center;
+  gap: clamp(8px, 1.6vw, 18px);
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  pointer-events: auto;
+}
+
+.choice-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.choice-label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--smoke);
+  white-space: nowrap;
+}
+
+.choice-seg {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 3px;
+  border-radius: 12px;
+}
+
+.choice-btn {
+  height: 38px;
+  min-width: 56px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--smoke);
+  cursor: pointer;
+  transition: background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.choice-btn:hover {
+  color: var(--off-white);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.choice-btn.active {
+  background: linear-gradient(135deg, var(--green), var(--green-deep));
+  color: #053120;
+  box-shadow: 0 4px 16px rgba(26, 158, 106, 0.35);
+}
+
+.choice-btn:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- */
 /* Floating 3D labels                                               */
 /* ---------------------------------------------------------------- */
 
@@ -1060,6 +1306,16 @@ html[data-motion="reduced"] *::after,
     padding: clamp(7px, 1.6vh, 12px) clamp(10px, 2.4vw, 16px);
   }
 
+  .set-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .set-row .seg {
+    max-width: none;
+  }
+
   .brand-name {
     font-size: 0;
     letter-spacing: 0;
@@ -1125,6 +1381,22 @@ html[data-motion="reduced"] *::after,
   #toasts {
     top: auto;
     bottom: 110px;
+  }
+
+  .choice-bar {
+    bottom: clamp(10px, 2vh, 16px);
+    gap: 6px 10px;
+    width: calc(100vw - 16px);
+  }
+
+  .choice-label {
+    display: none;
+  }
+
+  .choice-btn {
+    height: 48px;
+    min-width: 0;
+    flex: 1 1 auto;
   }
 }
 

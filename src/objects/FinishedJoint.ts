@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { FinishedJoint as FinishedJointI } from '../game/GameState';
-import { LAYOUT } from '../game/constants';
+import { LAYOUT, PAPERS } from '../game/constants';
+import type { PaperDef } from '../game/constants';
 import { damp } from '../utils/math';
 import { radialTexture } from '../utils/textures';
 
@@ -31,6 +32,9 @@ export class FinishedJoint implements FinishedJointI {
   private spinning = false;
   private intensity = 0;
   private time = 0;
+  private paper: PaperDef = PAPERS[1];
+  private lenScale = 1;
+  private radScale = 1;
 
   constructor() {
     this.bodyGeo.rotateZ(Math.PI / 2);
@@ -92,6 +96,16 @@ export class FinishedJoint implements FinishedJointI {
     this.group.visible = false;
   }
 
+  /** Reshape the joint (length × radius) to match the chosen paper. */
+  applyPaper(def: PaperDef): void {
+    if (def.id === this.paper.id) return;
+    const base = PAPERS[1];
+    this.paper = def;
+    this.lenScale = def.length / base.length;
+    this.radScale = def.radius / base.radius;
+    this.group.scale.set(this.lenScale, this.radScale, this.radScale);
+  }
+
   setSpin(v: boolean): void {
     this.spinning = v;
   }
@@ -103,6 +117,11 @@ export class FinishedJoint implements FinishedJointI {
   getTipWorld(out: THREE.Vector3): THREE.Vector3 {
     out.set(1.26, 0, 0);
     return this.group.localToWorld(out);
+  }
+
+  /** 0..1 ember intensity (drives the vignette glow). */
+  get litLevel(): number {
+    return this.intensity / 2.4;
   }
 
   update(dt: number): void {

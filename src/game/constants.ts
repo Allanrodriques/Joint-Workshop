@@ -1,4 +1,14 @@
-import type { GraphicsLevel, MotionLevel, Settings, StageId, ThemeDef } from './GameState';
+import type {
+  AmountId,
+  Choices,
+  GraphicsLevel,
+  MotionLevel,
+  PaperId,
+  Settings,
+  StageId,
+  StrainId,
+  ThemeDef,
+} from './GameState';
 
 export const STAGE_ORDER: StageId[] = [
   'INTRO',
@@ -64,6 +74,7 @@ export const CAMERA_VIEWS: Record<StageId, { pos: [number, number, number]; targ
   SMOKE: { pos: [0.7, 2.1, 3.7], target: [0.3, 0.55, 0.1] },
   FINAL: { pos: [0, 2.7, 4.7], target: [0, 0.5, 0.1] },
   FREE_ROAM: { pos: [0, 3.2, 5.2], target: [0, 0.4, 0.1] },
+  SANDBOX: { pos: [0.2, 2.6, 4.4], target: [0, 0.35, 0.1] },
 };
 
 export const ROLL = {
@@ -86,6 +97,70 @@ export const HERB: { variants: HerbalPart[] } = {
 };
 
 /* ---------------------------------------------------------------- */
+/* Roll recipe player choices                                      */
+/* ---------------------------------------------------------------- */
+
+export interface StrainDef {
+  id: StrainId;
+  name: string;
+  leaf: string;
+  trim: string;
+  core: string;
+  accent: string;
+}
+
+/** Plant material is recolored by choosing a strain. 'green' matches the classic look. */
+export const STRAINS: StrainDef[] = [
+  { id: 'green', name: 'Green Lotus', leaf: '#5b8f2e', trim: '#7ea65c', core: '#4a7338', accent: '#7ddc6a' },
+  { id: 'violet', name: 'Violet Haze', leaf: '#6a4a82', trim: '#8a6aa0', core: '#5a3a6e', accent: '#c79aee' },
+  { id: 'gold', name: 'Golden Pine', leaf: '#8f7a2e', trim: '#a89a52', core: '#7a5a2c', accent: '#e8c06a' },
+];
+
+export interface PaperDef {
+  id: PaperId;
+  name: string;
+  /** sheet width actual (paper wraps around the longest axis) */
+  width: number;
+  /** rolling diameter — the fatter/slimmer the joint */
+  radius: number;
+  /** finished joint length */
+  length: number;
+  /** drag("effort") multiplier for the ROLL stage — larger = easier/faster wrap */
+  gain: number;
+}
+
+/** 'regular' matches today's LAYOUT.paper values exactly. */
+export const PAPERS: PaperDef[] = [
+  { id: 'slim', name: 'Slim', width: 0.95, radius: 0.15, length: 2.2, gain: 1.22 },
+  { id: 'regular', name: 'Regular', width: 1.2, radius: 0.17, length: 2.4, gain: 1 },
+  { id: 'king', name: 'King Size', width: 1.5, radius: 0.19, length: 2.7, gain: 0.84 },
+];
+
+export interface AmountDef {
+  id: AmountId;
+  name: string;
+  /** how many broken pieces go into the ARRANGE stage (max 6 slots) */
+  pieces: number;
+  /** drag("effort") multiplier while rolling */
+  gain: number;
+}
+
+/** 'regular' matches today's ARRANGE.totalPieces of 4. */
+export const AMOUNTS: AmountDef[] = [
+  { id: 'light', name: 'Light', pieces: 3, gain: 1.15 },
+  { id: 'regular', name: 'Regular', pieces: 4, gain: 1 },
+  { id: 'generous', name: 'Generous', pieces: 5, gain: 0.9 },
+];
+
+export const DEFAULT_CHOICES: Choices = {
+  strain: 'green',
+  paper: 'regular',
+  amount: 'regular',
+};
+
+export const CHOICES_STORE_KEY = 'joint-workshop.choices.v1';
+
+/* ---------------------------------------------------------------- */
 /* Help copy                                                        */
 /* ---------------------------------------------------------------- */
 
@@ -104,9 +179,11 @@ export const HELP: Record<string, string> = {
   SMOKE:
     'The roll is lit — hold BLOW SMOKE and drag to steer the smoke around. It keeps rising until you hit END SESSION. Orbit and zoom with drag and scroll.',
   FINAL:
-    'The session is wrapped. Play again for a fresh run, change the desk scene, or enter Free Roam to orbit around and poke at everything.',
+    'The session is wrapped. Play again for a fresh run, roll another joint back to back, change the desk scene, or enter Free Roam to orbit around and poke at everything.',
   FREE_ROAM:
-    'Free Roam: drag empty space to orbit, scroll or pinch to zoom, and drag any object on the desk. Exit whenever you like.',
+    'Free Roam: drag empty space to orbit, scroll or pinch to zoom, and drag any object on the desk. Capture a photo, then exit whenever you like.',
+  SANDBOX:
+    'Sandbox: drag anything on the desk. Roll the paper to build a joint, scatter the bud, fire up the lighter — no rules, no timer. Exit to the wrap panel any time.',
   INTRO: 'Press START to open the workshop.',
 };
 
@@ -154,6 +231,8 @@ export function defaultSettings(): Settings {
     motion: (reduced ? 'reduced' : 'full') as MotionLevel,
     sound: true,
     themeIndex: 0,
+    skipIntro: false,
+    music: true,
   };
 }
 

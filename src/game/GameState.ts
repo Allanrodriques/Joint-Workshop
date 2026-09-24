@@ -15,17 +15,37 @@ export type StageId =
   | 'FINISHED'
   | 'SMOKE'
   | 'FINAL'
-  | 'FREE_ROAM';
+  | 'FREE_ROAM'
+  | 'SANDBOX';
 
 export type GraphicsLevel = 'high' | 'medium' | 'low';
 export type MotionLevel = 'full' | 'reduced';
 export type ToastTone = 'good' | 'amber' | 'neutral';
+
+/* ------------------------------------------------------------------ */
+/* Player choices (roll recipe)                                       */
+/* ------------------------------------------------------------------ */
+
+export type StrainId = 'green' | 'violet' | 'gold';
+export type PaperId = 'slim' | 'regular' | 'king';
+export type AmountId = 'light' | 'regular' | 'generous';
+export type ChoiceKind = 'strain' | 'paper' | 'amount';
+
+export interface Choices {
+  strain: StrainId;
+  paper: PaperId;
+  amount: AmountId;
+}
 
 export interface Settings {
   graphics: GraphicsLevel;
   motion: MotionLevel;
   sound: boolean;
   themeIndex: number;
+  /** Skip the cinematic intro — jump straight into the workshop once loaded. */
+  skipIntro: boolean;
+  /** Layered procedural ambient pad on top of the desk sounds. */
+  music: boolean;
 }
 
 export interface FinalStats {
@@ -34,6 +54,26 @@ export interface FinalStats {
   roll: number;
   style: number;
   styleLabel: string;
+}
+
+/** One finished smoking session, kept for the FINAL panel history. */
+export interface SessionRecord {
+  at: number;
+  seconds: number;
+  timeLabel: string;
+  objects: number;
+  roll: number;
+  style: number;
+  styleLabel: string;
+  strain: StrainId;
+  paper: PaperId;
+  amount: AmountId;
+  chain: number;
+}
+
+export interface AchievementChip {
+  id: string;
+  name: string;
 }
 
 export interface Stats {
@@ -106,6 +146,7 @@ export interface LabelDef {
 
 export interface HUDHandlers {
   onSoundToggle: () => void;
+  onSelectChoice: (kind: ChoiceKind, value: string) => void;
 }
 
 export interface HUD {
@@ -133,12 +174,20 @@ export interface HUD {
   hideFinished(): void;
   showFinal(stats: FinalStats, handlers: FinalHandlers): void;
   hideFinal(): void;
-  setFreeRoam(visible: boolean, onExit: (() => void) | null): void;
+  /** History list + achievement chips for the FINAL panel. */
+  setFinalExtras(records: SessionRecord[], chips: AchievementChip[]): void;
+  /** Full-screen photo capture overlay. */
+  setPhotoMode(active: boolean, handlers: { onCapture: () => void; onExit: () => void } | null): void;
+  /** Ember glow overlay intensity 0..1 (coal drifting up as the tip burns). */
+  setEmberGlow(v: number): void;
+  setFreeRoam(visible: boolean, onExit: (() => void) | null, onPhoto?: (() => void) | null): void;
   setHelpBody(text: string): void;
   openHelp(): void;
   openSettings(): void;
   closeModals(): void;
   setSoundIcon(on: boolean): void;
+  /** Roll-recipe bar (strain / paper / fill). null hides it. */
+  setChoiceBar(state: Choices | null): void;
   dispose(): void;
 }
 
@@ -146,6 +195,9 @@ export interface FinalHandlers {
   onReplay: () => void;
   onScene: () => void;
   onFreeRoam: () => void;
+  onNextJoint: () => void;
+  onSandbox: () => void;
+  onPhoto: () => void;
 }
 
 export interface ProgressUI {
@@ -303,6 +355,8 @@ export interface FinishedJoint {
   setLit(v: boolean): void;
   /** world position of the burning tip */
   getTipWorld(out: THREE.Vector3): THREE.Vector3;
+  /** 0..1 ember intensity (drives the vignette glow) */
+  get litLevel(): number;
   update(dt: number): void;
   reset(): void;
   dispose(): void;
@@ -433,6 +487,8 @@ export interface AudioManager {
   /** continuous airflow level 0..1 while BLOW SMOKE is held */
   blow(amount: number): void;
   setAmbient(on: boolean): void;
+  /** Layered ambient pad (music). on = wants a pad; safe to call before unlock. */
+  setMusic(on: boolean): void;
   dispose(): void;
 }
 
@@ -448,6 +504,7 @@ export interface GameAPI {
   readonly progress: ProgressUI;
   readonly settings: Settings;
   readonly stats: Stats;
+  readonly choices: Choices;
   readonly audio: AudioManager;
   readonly cameraRig: CameraRig;
   readonly interaction: InteractionManager;
@@ -457,6 +514,9 @@ export interface GameAPI {
   /** toast + CONTINUE button that advances to the next stage */
   stageComplete(message: string, continueLabel?: string): void;
   toast(text: string, tone?: ToastTone): void;
+  /** Enter/exit the full-screen photo-capture overlay (no stage change). */
+  enterPhotoMode(): void;
+  exitPhotoMode(): void;
   setHint(h: HintSpec | null): void;
   setLabels(defs: LabelDef[]): void;
   track(id: string): void;
@@ -464,4 +524,6 @@ export interface GameAPI {
   reducedMotion(): boolean;
   quality(): GraphicsLevel;
   applySettings(): void;
+  /** merge + persist a roll-recipe change and re-apply it to the world */
+  setChoices(patch: Partial<Choices>): void;
 }

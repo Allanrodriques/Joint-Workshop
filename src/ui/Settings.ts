@@ -50,7 +50,9 @@ export function createSettingsPanel(
     const s = getSettings();
     setGroup('gfx', s.graphics);
     setGroup('motion', s.motion);
-    setGroup('snd', s.sound ? 'on' : 'off');
+    setGroup('sound', s.sound ? 'on' : 'off');
+    setGroup('intro', s.skipIntro ? 'on' : 'off');
+    setGroup('music', s.music ? 'on' : 'off');
     setAppMotion(s.motion);
     if (gfxNote) {
       const detected = detectGraphics();
@@ -68,8 +70,12 @@ export function createSettingsPanel(
       patch.motion = motion as MotionLevel;
       setAppMotion(motion as MotionLevel);
     }
-    const snd = readChecked('snd');
+    const snd = readChecked('sound');
     if (snd === 'on' || snd === 'off') patch.sound = snd === 'on';
+    const intro = readChecked('intro');
+    if (intro === 'on' || intro === 'off') patch.skipIntro = intro === 'on';
+    const music = readChecked('music');
+    if (music === 'on' || music === 'off') patch.music = music === 'on';
     applyPatch(patch);
     sync();
   };

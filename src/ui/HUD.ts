@@ -1,13 +1,18 @@
 import type {
+  AchievementChip,
+  ChoiceKind,
+  Choices,
   FinalHandlers,
   FinalStats,
   HUD,
   HUDHandlers,
   HintProgressSpec,
   HintSpec,
+  SessionRecord,
   ToastTone,
 } from '../game/GameState';
 import { HELP } from '../game/constants';
+import { ACHIEVEMENT_DEFS } from '../game/History';
 
 const ROLL_CIRCUMFERENCE = 2 * Math.PI * 30;
 const TOAST_LIVE_MS = 2600;
@@ -24,6 +29,7 @@ export function createHUD(handlers: HUDHandlers): HUD {
   const intro = byId<HTMLElement>('overlay-intro');
   const finished = byId<HTMLElement>('overlay-finished');
   const finalOverlay = byId<HTMLElement>('overlay-final');
+  const freeRoamOverlay = byId<HTMLElement>('overlay-freeroam');
 
   const hint = byId<HTMLElement>('hint');
   const hintKicker = byId<HTMLElement>('hint-kicker');
@@ -53,10 +59,28 @@ export function createHUD(handlers: HUDHandlers): HUD {
   const btnReplay = byId<HTMLButtonElement>('btn-replay');
   const btnScene = byId<HTMLButtonElement>('btn-scene');
   const btnFreeRoam = byId<HTMLButtonElement>('btn-freeroam');
+  const btnNextJoint = byId<HTMLButtonElement>('btn-nextjoint');
+  const btnSandbox = byId<HTMLButtonElement>('btn-sandbox');
+  const btnPhoto = byId<HTMLButtonElement>('btn-photo');
   const btnExitFreeRoam = byId<HTMLButtonElement>('btn-exit-freeroam');
+  const btnPhotoFreeroam = byId<HTMLButtonElement>('btn-photo-freeroam');
   const btnHelp = byId<HTMLButtonElement>('btn-help');
   const btnSettings = byId<HTMLButtonElement>('btn-settings');
   const btnSound = byId<HTMLButtonElement>('btn-sound');
+
+  const sessionHistory = byId<HTMLElement>('session-history');
+  const achievCount = byId<HTMLElement>('achiev-count');
+  const achievStrip = byId<HTMLElement>('achiev-strip');
+
+  const photoUi = byId<HTMLElement>('photo-ui');
+  const btnPhotoCapture = byId<HTMLButtonElement>('btn-photo-capture');
+  const btnPhotoExit = byId<HTMLButtonElement>('btn-photo-exit');
+  const emberGlow = byId<HTMLElement>('ember-glow');
+
+  const choiceBar = byId<HTMLElement>('choice-bar');
+  const choiceBtns = Array.from(
+    document.querySelectorAll<HTMLButtonElement>('#choice-bar [data-kind]'),
+  );
 
   const modalSettings = byId<HTMLElement>('modal-settings');
   const modalHelp = byId<HTMLElement>('modal-help');
@@ -73,9 +97,11 @@ export function createHUD(handlers: HUDHandlers): HUD {
   let startCb: (() => void) | null = null;
   let lightCb: (() => void) | null = null;
   let exitFreeRoamCb: (() => void) | null = null;
+  let photoFreeroamCb: (() => void) | null = null;
   let finalHandlers: FinalHandlers | null = null;
   let helpBody = '';
   let finalBound = false;
+  let photoHandlers: { onCapture: () => void; onExit: () => void } | null = null;
 
   interface SmokeHandlers {
     onBlowStart(): void;
@@ -330,6 +356,9 @@ export function createHUD(handlers: HUDHandlers): HUD {
     on(btnReplay, 'click', () => finalHandlers?.onReplay());
     on(btnScene, 'click', () => finalHandlers?.onScene());
     on(btnFreeRoam, 'click', () => finalHandlers?.onFreeRoam());
+    on(btnNextJoint, 'click', () => finalHandlers?.onNextJoint());
+    on(btnSandbox, 'click', () => finalHandlers?.onSandbox());
+    on(btnPhoto, 'click', () => finalHandlers?.onPhoto());
   };
 
   const showFinal = (stats: FinalStats, handlers: FinalHandlers): void => {
@@ -348,9 +377,68 @@ export function createHUD(handlers: HUDHandlers): HUD {
     finalOverlay.hidden = true;
   };
 
-  const setFreeRoam = (visible: boolean, onExit: (() => void) | null): void => {
+  const setFreeRoam = (
+    visible: boolean,
+    onExit: (() => void) | null,
+    onPhoto: (() => void) | null = null,
+  ): void => {
+    freeRoamOverlay.hidden = !visible;
     btnExitFreeRoam.hidden = !visible;
+    btnPhotoFreeroam.hidden = !visible || !onPhoto;
     exitFreeRoamCb = onExit;
+    photoFreeroamCb = onPhoto;
+  };
+
+  const setFinalExtras = (records: SessionRecord[], chips: AchievementChip[]): void => {
+    sessionHistory.textContent = '';
+    if (!records.length) {
+      const empty = document.createElement('p');
+      empty.className = 'history-empty';
+      empty.textContent = 'No sessions yet.';
+      sessionHistory.appendChild(empty);
+    } else {
+      for (const r of records.slice(0, 5)) {
+        const item = document.createElement('p');
+        item.className = 'history-item';
+        const t = document.createElement('span');
+        t.className = 'h-time';
+        t.textContent = r.timeLabel;
+        const rec = document.createElement('span');
+        rec.className = 'h-rec';
+        rec.textContent =
+          `${r.roll}% · ${r.styleLabel} · ${r.strain} · ${r.paper}${r.chain > 1 ? ` · ×${r.chain}` : ''}`;
+        item.append(t, rec);
+        sessionHistory.appendChild(item);
+      }
+    }
+    achievCount.textContent = `${chips.length} / ${ACHIEVEMENT_DEFS.length}`;
+    achievStrip.textContent = '';
+    if (!chips.length) {
+      const empty = document.createElement('p');
+      empty.className = 'history-empty';
+      empty.textContent = 'Keep playing to unlock.';
+      achievStrip.appendChild(empty);
+    } else {
+      for (const c of chips) {
+        const chip = document.createElement('span');
+        chip.className = 'achiev-chip';
+        chip.title = c.name;
+        chip.textContent = c.name;
+        achievStrip.appendChild(chip);
+      }
+    }
+  };
+
+  const setPhotoMode = (active: boolean, handlers: { onCapture: () => void; onExit: () => void } | null): void => {
+    photoHandlers = handlers;
+    photoUi.hidden = !active;
+    document.body.classList.toggle('photo-mode', active);
+  };
+
+  const setEmberGlow = (v: number): void => {
+    const k = Math.max(0, Math.min(1, v));
+    const opacity = 0.12 + k * 0.5;
+    if (emberGlow.style.opacity !== String(opacity)) emberGlow.style.opacity = String(opacity);
   };
 
   const setHelpBody = (text: string): void => {
@@ -381,6 +469,28 @@ export function createHUD(handlers: HUDHandlers): HUD {
     btnSound.classList.toggle('muted', !on);
   };
 
+  let currentChoices: Choices | null = null;
+
+  /** Mirror the current recipe onto the segmented pills, then show/hide the bar. */
+  const renderChoices = (): void => {
+    for (const btn of choiceBtns) {
+      const kind = btn.dataset.kind as ChoiceKind | undefined;
+      const active = !!currentChoices && btn.dataset.value === currentChoices[kind as keyof Choices];
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    }
+  };
+
+  const setChoiceBar = (state: Choices | null): void => {
+    currentChoices = state;
+    if (!state) {
+      choiceBar.hidden = true;
+      return;
+    }
+    renderChoices();
+    choiceBar.hidden = false;
+  };
+
   const dispose = (): void => {
     toastTimers.forEach((t) => window.clearTimeout(t));
     toastTimers.clear();
@@ -401,6 +511,16 @@ export function createHUD(handlers: HUDHandlers): HUD {
   });
 
   on(btnSound, 'click', () => handlers.onSoundToggle());
+  for (const btn of choiceBtns) {
+    on(btn, 'click', () => {
+      const kind = btn.dataset.kind as ChoiceKind | undefined;
+      const value = btn.dataset.value;
+      if (!kind || !value || !currentChoices) return;
+      currentChoices = { ...currentChoices, [kind]: value } as Choices;
+      renderChoices();
+      handlers.onSelectChoice(kind, value);
+    });
+  }
   on(btnHelp, 'click', openHelp);
   on(btnSettings, 'click', openSettings);
   on(btnBlow, 'click', () => blowCb?.());
@@ -410,6 +530,9 @@ export function createHUD(handlers: HUDHandlers): HUD {
     cb?.();
   });
   on(btnExitFreeRoam, 'click', () => exitFreeRoamCb?.());
+  on(btnPhotoFreeroam, 'click', () => photoFreeroamCb?.());
+  on(btnPhotoCapture, 'click', () => photoHandlers?.onCapture());
+  on(btnPhotoExit, 'click', () => photoHandlers?.onExit());
 
   on(hintToggle, 'click', () => {
     const collapsed = hint.classList.toggle('collapsed');
@@ -426,7 +549,12 @@ export function createHUD(handlers: HUDHandlers): HUD {
   });
 
   on(document, 'keydown', (e) => {
-    if ((e as KeyboardEvent).key === 'Escape') closeModals();
+    if ((e as KeyboardEvent).key !== 'Escape') return;
+    if (photoHandlers && !photoUi.hidden) {
+      photoHandlers.onExit();
+      return;
+    }
+    closeModals();
   });
 
   return {
@@ -446,12 +574,16 @@ export function createHUD(handlers: HUDHandlers): HUD {
     hideFinished,
     showFinal,
     hideFinal,
+    setFinalExtras,
+    setPhotoMode,
+    setEmberGlow,
     setFreeRoam,
     setHelpBody,
     openHelp,
     openSettings,
     closeModals,
     setSoundIcon,
+    setChoiceBar,
     dispose,
   };
 }

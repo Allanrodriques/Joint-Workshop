@@ -7,7 +7,7 @@ import type {
   Stage,
   StageId,
 } from '../game/GameState';
-import { ARRANGE, LAYOUT } from '../game/constants';
+import { AMOUNTS, ARRANGE, LAYOUT, PAPERS } from '../game/constants';
 import { clamp, damp, rand } from '../utils/math';
 import { Ease } from '../utils/tween';
 
@@ -99,6 +99,7 @@ export class ArrangeStage implements Stage {
   private activeId: string | null = null;
   private hitboxes: THREE.Mesh[] = [];
   private hiddenExtras: THREE.Object3D[] = [];
+  private paperWidth: number = LAYOUT.paper.width;
   private time = 0;
 
   get debug(): ArrangeDebug {
@@ -123,6 +124,11 @@ export class ArrangeStage implements Stage {
     w.paper.setVisible(true);
     w.paper.setProgress(0);
     w.bud.setCoreFormed(false);
+
+    const amount = AMOUNTS.find((a) => a.id === game.choices.amount) ?? AMOUNTS[1];
+    const paperDef = PAPERS.find((p) => p.id === game.choices.paper) ?? PAPERS[1];
+    this.state.totalPieces = amount.pieces;
+    this.paperWidth = paperDef.width;
 
     const allChunks = w.bud.chunkMeshes().filter((m) => m.visible);
     // Use only the pieces we actually need; hide the rest so they never clutter or block.
@@ -166,8 +172,8 @@ export class ArrangeStage implements Stage {
       contains: (p) =>
         p.x > paper.x - paper.len / 2 &&
         p.x < paper.x + paper.len / 2 &&
-        p.z > paper.z - paper.width / 2 &&
-        p.z < paper.z + paper.width / 2,
+        p.z > paper.z - this.paperWidth / 2 &&
+        p.z < paper.z + this.paperWidth / 2,
       snapTo: (p) => {
         if (this.nextSlot < LAYOUT.pieceSlots.length) {
           const slot = LAYOUT.pieceSlots[this.nextSlot];

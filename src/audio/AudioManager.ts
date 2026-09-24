@@ -2,6 +2,7 @@ import type { AudioManager as AudioManagerContract } from '../game/GameState';
 
 const MASTER_GAIN = 0.5;
 const AMBIENT_GAIN = 0.02;
+const MUSIC_GAIN = 0.02;
 
 export class AudioManager implements AudioManagerContract {
   private ctx: AudioContext | null = null;
@@ -12,6 +13,9 @@ export class AudioManager implements AudioManagerContract {
   private ambientWanted = false;
   private _enabled = true;
   private airflow: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
+
+  private musicWanted = false;
+  private musicNodes: { osc: OscillatorNode[]; gain: GainNode; filter: BiquadFilterNode } | null = null;
 
   get enabled(): boolean {
     return this._enabled;
@@ -41,6 +45,7 @@ export class AudioManager implements AudioManagerContract {
         return last * 3.5;
       });
       if (this.ambientWanted) this.startAmbient(ctx, master);
+      if (this.musicWanted) this.startMusic(ctx, master);
     } catch {
       this.ctx = null;
       this.master = null;
@@ -275,8 +280,26 @@ export class AudioManager implements AudioManagerContract {
     }
   }
 
+  /** Layered ambient pad. Safe to call before the AudioContext exists. */
+  setMusic(on: boolean): void {
+    this.musicWanted = on;
+    try {
+      const ctx = this.ctx;
+      if (!ctx || !this.master) return;
+      if (on) {
+        if (!this.musicNodes) this.startMusic(ctx, this.master);
+      } else {
+        this.stopMusic();
+      }
+    } catch {
+      /* ignore audio errors */
+    }
+  }
+
   dispose(): void {
     this.ambientWanted = false;
+    this.musicWanted = false;
+    this.stopMusic();
     try {
       const a = this.ambient;
       this.ambient = null;
@@ -317,6 +340,88 @@ export class AudioManager implements AudioManagerContract {
     g.connect(master);
     src.start();
     this.ambient = src;
+  }
+
+  private startMusic(ctx: AudioContext, master: GainNode): void {
+    if (this.musicNodes) return;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 640;
+    filter.Q.value = 0.4;
+    gain.connect(filter);
+    filter.connect(master);
+
+    const osc: OscillatorNode[] = [];
+    const freqs = [110, 164.8, 220];
+    for (let i = 0; i < freqs.length; i++) {
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.value = freqs[i];
+      o.detune.value = (i - 1) * 5 + (Math.random() - 0.5) * 3;
+      const og = ctx.createGain();
+      og.gain.value = i === 0 ? 0.42 : i === 1 ? 0.26 : 0.18;
+      o.connect(og);
+      og.connect(gain);
+      o.start();
+      osc.push(o);
+    }
+
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 0.06;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0.006;
+    lfo.connect(lfoGain);
+    lfoGain.connect(gain.gain);
+    lfo.start();
+    osc.push(lfo);
+
+    const filterLfo = ctx.createOscillator();
+    filterLfo.type = 'sine';
+    filterLfo.frequency.value = 0.11;
+    const fGain = ctx.createGain();
+    fGain.gain.value = 170;
+    filterLfo.connect(fGain);
+    fGain.connect(filter.frequency);
+    filterLfo.start();
+    osc.push(filterLfo);
+
+    const t = ctx.currentTime;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(MUSIC_GAIN, t + 1.4);
+
+    this.musicNodes = { osc, gain, filter };
+  }
+
+  private stopMusic(): void {
+    const m = this.musicNodes;
+    if (!m) return;
+    this.musicNodes = null;
+    try {
+      const t = this.ctx?.currentTime ?? 0;
+      m.gain.gain.cancelScheduledValues(t);
+      m.gain.gain.setValueAtTime(m.gain.gain.value, t);
+      m.gain.gain.linearRampToValueAtTime(0, t + 0.35);
+      const osc = m.osc;
+      const filter = m.filter;
+      const gain = m.gain;
+      window.setTimeout(() => {
+        for (const o of osc) {
+          try {
+            o.stop();
+          } catch {
+            /* ignore */
+          }
+          o.disconnect();
+        }
+        filter.disconnect();
+        gain.disconnect();
+      }, 450);
+    } catch {
+      /* ignore audio errors */
+    }
   }
 
   private play(run: (ctx: AudioContext, master: GainNode) => void): void {

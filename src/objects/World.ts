@@ -16,6 +16,7 @@ import { ParticleFX } from './ParticleFX';
 import { CursorHand } from './CursorHand';
 import { ZoneRing } from './ZoneRing';
 import { CreatorPlaque } from './CreatorPlaque';
+import { Motes } from './Motes';
 
 /** Owns every scene object and their per-frame update + disposal. */
 export class World implements WorldI {
@@ -32,6 +33,7 @@ export class World implements WorldI {
 
   smoke!: SmokeSystem;
   fx!: ParticleFX;
+  readonly motes = new Motes();
   readonly cursor = new CursorHand();
   readonly zone = new ZoneRing();
 
@@ -75,6 +77,7 @@ export class World implements WorldI {
     this.scene.add(this.fx.group);
     this.scene.add(this.cursor.group);
     this.scene.add(this.zone.group);
+    this.scene.add(this.motes.group);
 
     this.paper.setVisible(false);
     this.joint.hide();
@@ -101,6 +104,7 @@ export class World implements WorldI {
     this.smoke.stop();
     this.smoke.reset();
     this.fx.reset();
+    this.motes.reset();
     this.zone.hide();
     this.cursor.reset();
   }
@@ -112,6 +116,7 @@ export class World implements WorldI {
     this.joint.update(dt);
     this.smoke.update(dt, camera);
     this.fx.update(dt);
+    this.motes.update(dt);
     this.cursor.update(dt, camera);
     this.zone.update(dt);
   }
@@ -129,6 +134,7 @@ export class World implements WorldI {
     this.joint.dispose();
     this.smoke.dispose();
     this.fx.dispose();
+    this.motes.dispose();
     this.cursor.dispose();
     this.zone.dispose();
     this.plaque.dispose();
