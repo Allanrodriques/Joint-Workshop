@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+    />
+    <style>
+      /* Critical boot CSS — available synchronously so NO unstyled content is
+         ever painted. Loader/app UI is hidden until the intro is live. */
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        min-height: 100%;
+        overflow: hidden;
+        background: #08090d;
+        color: #f4f0e8;
+      }
+      #app {
+        visibility: hidden;
+      }
+      #scene {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #app-boot {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: radial-gradient(120% 90% at 50% 30%, #10131c 0%, #08090d 62%, #06070a 100%);
+      }
+    </style>
+    <meta name="theme-color" content="#101014" />
+    <meta
+      name="description"
+      content="Joint Workshop — a tiny 3D rolling-workshop game."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>"
+    />
+    <title>Joint Workshop · a tiny 3D rolling game</title>
+  </head>
+  <body>
+    <div id="app-boot"><div class="boot-background" aria-hidden="true"></div></div>
+
+    <div id="app">
+      <canvas id="scene" aria-label="3D workshop scene"></canvas>
+      <div id="bind"></div>
+
+      <div id="intro" class="intro" aria-hidden="true">
+        <!-- LAYERS (z): canvas 0 · backdrop 1 · content 10 · veil 30 -->
+        <div class="intro-backdrop" aria-hidden="true"></div>
+
+        <div class="intro-content">
+          <div class="intro-stack" id="intro-stack">
+            <p class="intro-kicker" id="intro-kicker">A TINY 3D WORKSHOP</p>
+            <h1 class="intro-title" id="intro-title">JOINT <em>WORKSHOP</em></h1>
+            <p class="intro-tag" id="intro-tag">
+              Heat, herb, paper — a quiet desk for making something good.
+            </p>
+
+            <div class="intro-progress" id="intro-progress"
+              role="progressbar" aria-label="Loading workshop"
+              aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div class="intro-progress-track">
+                <div id="intro-progress-bar" class="intro-progress-bar"></div>
+              </div>
+              <div class="intro-meta">
+                <span id="intro-phase">INITIALIZING WORKSHOP</span>
+                <span id="intro-pct">0%</span>
+              </div>
+            </div>
+
+            <button id="intro-enter" class="intro-enter" type="button" disabled>
+              <span>ENTER WORKSHOP</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M5 12h14M13 6l6 6-6 6"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="intro-veil" class="intro-veil"></div>
+      </div>
+
+      <header class="hud glass">
+        <div class="hud-brand" aria-hidden="true">
+          <span class="status-dot"></span>
+          <span class="brand-name">Joint Workshop</span>
+        </div>
+
+        <ol id="progress" class="progress" aria-label="Progress">
+          <li class="step" data-stage="PREPARE">
+            <span class="step-num">01</span><span class="step-label">Prepare</span>
+          </li>
+          <li class="step" data-stage="CLEAN">
+            <span class="step-num">02</span><span class="step-label">Clean up</span>
+          </li>
+          <li class="step" data-stage="BREAK">
+            <span class="step-num">03</span><span class="step-label">Break</span>
+          </li>
+          <li class="step" data-stage="ARRANGE">
+            <span class="step-num">04</span><span class="step-label">Arrange</span>
+          </li>
+          <li class="step" data-stage="ROLL">
+            <span class="step-num">05</span><span class="step-label">Roll</span>
+          </li>
+          <li class="step" data-stage="SMOKE">
+            <span class="step-num">06</span><span class="step-label">Smoke</span>
+          </li>
+        </ol>
+        <div class="hud-actions">
+          <button
+            id="btn-help"
+            class="icon-btn"
+            aria-label="Open help"
+            title="Help"
+            type="button"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" stroke-width="1.6" />
+              <path
+                d="M9.7 9.3a2.4 2.4 0 1 1 3.2 2.3c-.75.35-1.2 1-1.2 1.8v.2"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+              />
+              <circle cx="11.8" cy="16.4" r="0.4" fill="currentColor" />
+            </svg>
+          </button>
+          <button
+            id="btn-sound"
+            class="icon-btn"
+            aria-label="Toggle sound"
+            aria-pressed="true"
+            title="Sound on/off"
+            type="button"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M4 9.5v5h3.2L12 18V6L7.2 9.5H4z"
+                fill="currentColor"
+              />
+              <path
+                d="M15.5 9a4.2 4.2 0 0 1 0 6M17.8 7a7 7 0 0 1 0 10"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+          <button
+            id="btn-settings"
+            class="icon-btn"
+            aria-label="Open settings"
+            title="Settings"
+            type="button"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+              />
+              <path
+                d="M19.2 12.9l.08.76.72.22 1.75.55-1 1.73-1.56-.56-.56.5-.4.65 1 1.5-1.72 1-1.3-1.55-.62.1-.7.32-1.08 1.28h-2l-1.08-1.28-.7-.32-.62-.1-1.3 1.55-1.72-1 1-1.5-.4-.65-.56-.5-1.56.56-1-1.73 1.75-.55.72-.22.08-.76-.08-.9-.72-.22-1.75-.55 1-1.73 1.56.56.56-.5.4-.65-1-1.5 1.72-1 1.3 1.55.62.1.7.32 1.08-1.28 2 1.28 1.08-.32.7-.1.62.55 1.3-1.55 1.72 1-1 1.5.4.65.56.5 1.56-.56 1 1.73-1.75.55-.72.22-.08.9z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.1"
+              />
+            </svg>
+          </button>
+          <button id="btn-sound2" class="icon-btn" aria-label="Sound" title="Sound" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 9.5v5h3.2L12 18V6L7.2 9.5H4z" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div id="toasts" aria-live="polite"></div>
+
+      <section id="hint" class="hint glass" aria-live="polite" hidden>
+        <div class="hint-head">
+          <span class="hint-kicker" id="hint-kicker"></span>
+          <button
+            id="hint-toggle"
+            class="hud-toggle"
+            type="button"
+            aria-label="Minimize objective"
+            aria-expanded="true"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </div>
+        <div class="hint-body">
+          <p class="hint-text" id="hint-text"></p>
+          <div class="hint-progress">
+            <div class="hint-meta" id="hint-meta">
+              <span class="hud-status" id="hint-status">READY</span>
+              <span class="hint-pct" id="hint-pct">0 / 1</span>
+            </div>
+            <div class="hint-bar"><i id="hint-bar"></i></div>
+          </div>
+          <div class="hud-foot">
+            <button id="hint-continue" class="btn btn-primary" hidden>CONTINUE</button>
+            <button id="btn-blow" class="btn btn-primary" hidden>BLOW</button>
+          </div>
+        </div>
+
+        <div id="roll-ring" class="roll-ring" hidden>
+          <svg viewBox="0 0 70 70" aria-hidden="true">
+            <circle class="ring-bg" cx="35" cy="35" r="30" fill="none" stroke="currentColor" stroke-opacity="0.2" stroke-width="6" />
+            <circle id="ring-fg" class="ring-fg" cx="35" cy="35" r="30" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="188.5" />
+          </svg>
+          <span class="roll-pct" id="roll-pct">0%</span>
+        </div>
+      </section>
+
+      <div id="smoke-ui" class="smoke-ui" hidden>
+        <div class="smoke-status" id="smoke-status">
+          <span class="smoke-pulse" aria-hidden="true"></span>
+          <span class="smoke-status-label" id="smoke-status-label">SMOKE ACTIVE</span>
+        </div>
+        <div class="smoke-actions">
+          <button
+            id="btn-blow-hold"
+            class="btn btn-amber btn-xl btn-blow-hold"
+            type="button"
+          >
+            BLOW SMOKE
+          </button>
+          <button id="btn-end-session" class="btn btn-ghost btn-xl" type="button">
+            END SESSION
+          </button>
+        </div>
+      </div>
+
+      <div id="labels" aria-hidden="true"></div>
+
+      <div id="overlay-intro" class="overlay" hidden>
+        <div class="panel">
+          <h1 class="title">Joint Workshop</h1>
+          <p class="tagline">A tiny 3D rolling simulator. Let's make something.</p>
+          <button id="btn-start" class="btn btn-primary btn-lg">START</button>
+        </div>
+      </div>
+
+      <div id="overlay-finished" class="overlay overlay-soft" hidden>
+        <div class="panel">
+          <p class="panel-head">Workshop complete.</p>
+          <button id="btn-light" class="btn btn-primary btn-lg">LIGHT IT</button>
+        </div>
+      </div>
+
+      <aside id="overlay-final" class="overlay-final" hidden>
+        <div class="panel final">
+          <p class="panel-kicker">06 · SMOKE</p>
+          <h2>Session Complete 🌿</h2>
+          <dl class="stats">
+            <div><dt>Time taken</dt><dd id="stat-time">—</dd></div>
+            <div><dt>Objects interacted</dt><dd id="stat-objects">—</dd></div>
+            <div><dt>Roll completion</dt><dd id="stat-roll">—</dd></div>
+            <div><dt>Style score</dt><dd id="stat-style">—</dd></div>
+          </dl>
+          <div class="final-actions">
+            <button id="btn-replay" class="btn btn-primary">PLAY AGAIN</button>
+            <button id="btn-scene" class="btn btn-ghost">CHANGE SCENE</button>
+            <button id="btn-freeroam" class="btn btn-ghost">FREE ROAM</button>
+          </div>
+        </div>
+      </aside>
+
+      <div id="modal-settings" class="modal" hidden>
+        <div class="modal-card">
+          <h2>Settings</h2>
+          <div class="set-row">
+            <span>Graphics</span>
+            <div class="seg" role="radiogroup" aria-label="Graphics quality">
+              <label><input type="radio" name="gfx" value="high" /><span>High</span></label>
+              <label><input type="radio" name="gfx" value="medium" checked /><span>Medium</span></label>
+              <label><input type="radio" name="gfx" value="low" /><span>Low</span></label>
+            </div>
+          </div>
+          <div class="set-row">
+            <span>Motion</span>
+            <div class="seg" role="radiogroup" aria-label="Motion">
+              <label><input type="radio" name="motion" value="full" checked /><span>Full</span></label>
+              <label><input type="radio" name="motion" value="reduced" /><span>Reduced</span></label>
+            </div>
+          </div>
+          <div class="set-row">
+            <span>Sound</span>
+            <div class="seg" role="radiogroup" aria-label="Sound">
+              <label><input type="radio" name="sound" value="on" checked /><span>On</span></label>
+              <label><input type="radio" name="sound" value="off" /><span>Off</span></label>
+            </div>
+          </div>
+          <button id="btn-settings-close" class="btn btn-ghost" data-close="modal-settings">Close</button>
+        </div>
+      </div>
+
+      <div id="modal-help" class="modal" hidden>
+        <div class="modal-card">
+          <h2>How to play</h2>
+          <p id="help-body"></p>
+          <button id="btn-help-close" class="btn btn-ghost" data-close="modal-help">Close</button>
+        </div>
+      </div>
+
+      <div id="overlay-freeroam" class="overlay overlay-soft" hidden>
+        <div class="panel">
+          <p class="panel-head">Free roam — inspect the desk.</p>
+          <button id="btn-exit-freeroam" class="btn btn-primary">EXIT</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
